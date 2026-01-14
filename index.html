@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>2-Class Membership</title>
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    body { font-family: sans-serif; background:#f7f7f7; padding:40px;}
+    .container { max-width:420px; margin:auto; background:white; padding:24px; border-radius:10px;}
+    button { width:100%; padding:12px; margin-top:16px; font-size:16px; cursor:pointer;}
+    #error-message { color:red; margin-top:12px;}
+  </style>
+</head>
+<body>
+<div class="container">
+  <h2>2-Class Membership</h2>
+  <p>Charge today, renew monthly on the 1st. Cancel anytime via Stripe.</p>
+
+  <form id="payment-form">
+    <div id="payment-element"></div>
+    <input type="email" id="email" placeholder="Email" required style="width:100%; padding:8px; margin-top:8px;">
+    <button id="submit">Pay $45</button>
+    <div id="error-message"></div>
+  </form>
+</div>
+
+<script>
+  const stripe = Stripe("pk_test_YOUR_PUBLISHABLE_KEY"); // ← REPLACE with your Stripe publishable key
+
+  async function initialize() {
+    const elements = stripe.elements();
+    const paymentElement = elements.create("payment");
+    paymentElement.mount("#payment-element");
+
+    document.getElementById("payment-form").addEventListener("submit", async (e)=>{
+      e.preventDefault();
+
+      const email = document.getElementById("email").value;
+
+      const { paymentMethod, error } = await stripe.createPaymentMethod({
+        type: 'card',
+        card: paymentElement,
+        billing_details: { email }
+      });
+
+      if(error){
+        document.getElementById("error-message").textContent = error.message;
+        return;
+      }
+
+      // Send to your Apps Script backend
+      const res = await fetch("YOUR_APPS_SCRIPT_URL", { // ← REPLACE with your Apps Script URL
+        method: "POST",
+        body: JSON.stringify({
+          payment_method_id: paymentMethod.id,
+          email: email
+        })
+      });
+
+      const json = await res.json();
+      if(json.success){
+        alert("You're enrolled! First charge today, next charge on the 1st.");
+      } else {
+        document.getElementById("error-message").textContent = json.error || "Something went wrong";
+      }
+    });
+  }
+
+  initialize();
+</script>
+</body>
+</html>
