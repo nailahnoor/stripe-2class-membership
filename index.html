@@ -1,78 +1,46 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>2-Class Membership</title>
-  <script src="https://js.stripe.com/v3/"></script>
-  <style>
-    body { font-family: sans-serif; background:#f7f7f7; padding:40px;}
-    .container { max-width:420px; margin:auto; background:white; padding:24px; border-radius:10px;}
-    button { width:100%; padding:12px; margin-top:16px; font-size:16px; cursor:pointer;}
-    #error-message { color:red; margin-top:12px;}
-  </style>
-</head>
-<body>
-<div class="container">
-  <h2>2-Class Membership</h2>
-  <p>Charge today, renew monthly on the 1st. Cancel anytime via Stripe.</p>
-
-  <form id="payment-form">
-    <div id="payment-element"></div>
-    <input type="email" id="email" placeholder="Email" required style="width:100%; padding:8px; margin-top:8px;">
-    <button id="submit">Pay $45</button>
-    <div id="error-message"></div>
-  </form>
-</div>
-
 <script>
-  const stripe = Stripe("pk_test_51QG3MjAXY9hpMKCtZnFYTiRFjCHqD8jjci5n8fCNQ4OfxKrAnYBGuk7Iq3jDE1NGTiT8SBCIl70RQ2h2HCavPDbW00oAxvTmIf");
-  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxskp60gMiBpfy_KXgdXqoiAU6VGGbXGoD_s-Gbhp5mrHPV_C7VMCaX-a7V1GKAPp4v/exec";
+const stripe = Stripe("pk_test_51QG3MjAXY9hpMKCtZnFYTiRFjCHqD8jjci5n8fCNQ4OfxKrAnYBGuk7Iq3jDE1NGTiT8SBCIl70RQ2h2HCavPDbW00oAxvTmIf");
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxskp60gMiBpfy_KXgdXqoiAU6VGGbXGoD_s-Gbhp5mrHPV_C7VMCaX-a7V1GKAPp4v/exec";
 
-  async function initialize() {
-    const form = document.getElementById("payment-form");
-    const emailInput = document.getElementById("email");
+let elements;
+let paymentElement;
+let clientSecret;
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-
-      // 1️⃣ Request client_secret from Apps Script backend
-      const response = await fetch(APPS_SCRIPT_URL, {
-        method: "POST",
-        body: JSON.stringify({ email: emailInput.value })
-      });
-      const data = await response.json();
-
-      if (!data.success) {
-        document.getElementById("error-message").textContent = data.error || "Something went wrong";
-        return;
-      }
-
-      const clientSecret = data.client_secret;
-
-      // 2️⃣ Initialize Stripe Elements with client_secret
-      const elements = stripe.elements({ clientSecret });
-      const paymentElement = elements.create("payment");
-      paymentElement.mount("#payment-element");
-
-      // 3️⃣ Listen for form submission to confirm payment
-      form.onsubmit = async (event) => {
-        event.preventDefault();
-        const { error } = await stripe.confirmPayment({
-          elements,
-          confirmParams: {
-            return_url: window.location.href  // or a dedicated success page
-          }
-        });
-
-        if (error) {
-          document.getElementById("error-message").textContent = error.message;
-        }
-      };
-    });
+// 1️⃣ Get client_secret as soon as page loads
+async function fetchClientSecret() {
+  const emailInput = document.getElementById("email").value || "test@example.com"; // temp
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method: "POST",
+    body: JSON.stringify({ email: emailInput })
+  });
+  const data = await res.json();
+  if (!data.success) {
+    document.getElementById("error-message").textContent = data.error || "Error fetching client secret";
+    return;
   }
+  clientSecret = data.client_secret;
 
-  initialize();
+  // 2️⃣ Mount Payment Element
+  elements = stripe.elements({ clientSecret });
+  paymentElement = elements.create("payment");
+  paymentElement.mount("#payment-element");
+}
+
+// 3️⃣ Handle form submit
+document.getElementById("payment-form").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const email = document.getElementById("email").value;
+
+  const { error } = await stripe.confirmPayment({
+    elements,
+    confirmParams: { return_url: window.location.href },
+  });
+
+  if (error) {
+    document.getElementById("error-message").textContent = error.message;
+  }
+});
+
+// 4️⃣ Initialize on page load
+window.addEventListener("DOMContentLoaded", fetchClientSecret);
 </script>
-</body>
-</html>
