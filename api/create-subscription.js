@@ -1,6 +1,9 @@
+// /api/create-subscription.js
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2023-08-16", // latest stable
+});
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -8,37 +11,42 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Parse JSON safely
-    const data = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-    const { email } = data;
+    const { email } = req.body;
 
-    if (!email) return res.status(400).json({ error: "Email is required" });
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
 
-    // 1️⃣ Create customer
-    const customer = await stripe.customers.create({ email });
+    // 1️⃣ Create or retrieve customer
+    const customers = await stripe.customers.list({ email, limit: 1 });
+    const customer =
+      customers.data.length > 0
+        ? customers.data[0]
+        : await stripe.customers.create({ email });
 
-    // 2️⃣ Create subscription
-    const subscription = await stripe.subscriptions.create({
+    // 2️⃣ Create Checkout Session for subscription
+    const session = await stripe.checkout.sessions.create({
       customer: customer.id,
-      items: [{ price: "price_1SpaQ1AXY9hpMKCt5BfdzbVQ" }],
-      billing_cycle_anchor: getNextFirstOfMonthUnix(),
-      proration_behavior: "none",
-      expand: ["latest_invoice.payment_intent"]
+      mode: "subscription",
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price: "price_1SpaQ1AXY9hpMKCt5BfdzbVQ", // your 2-class price
+          quantity: 1,
+        },
+      ],
+      subscription_data: {
+        billing_cycle_anchor_config: { day_of_month: 1 }, // charge on the 1st
+        proration_behavior: "none",
+      },
+      allow_promotion_codes: true,
+      success_url: `${req.headers.origin}/success.html`,
+      cancel_url: `${req.headers.origin}/cancel.html`,
     });
 
-    res.status(200).json({
-      success: true,
-      client_secret: subscription.latest_invoice.payment_intent.client_secret
-    });
-
+    res.status(200).json({ url: session.url });
   } catch (err) {
-    console.error("Stripe error:", err);
-    res.status(500).json({ success: false, error: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
   }
-}
-
-// Helper: next 1st of the month as UNIX timestamp
-function getNextFirstOfMonthUnix() {
-  const now = new Date();
-  return Math.floor(new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime() / 1000);
 }
