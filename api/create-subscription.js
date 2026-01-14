@@ -1,10 +1,6 @@
-const Stripe = require("stripe");
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+import Stripe from "stripe";
 
-function getNextFirstOfMonthUnix() {
-  const now = new Date();
-  return Math.floor(new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime() / 1000);
-}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -12,11 +8,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: "Email required" });
+    // Parse JSON safely
+    const data = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    const { email } = data;
 
+    if (!email) return res.status(400).json({ error: "Email is required" });
+
+    // 1️⃣ Create customer
     const customer = await stripe.customers.create({ email });
 
+    // 2️⃣ Create subscription
     const subscription = await stripe.subscriptions.create({
       customer: customer.id,
       items: [{ price: "price_1SpaQ1AXY9hpMKCt5BfdzbVQ" }],
@@ -31,7 +32,13 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("Stripe error:", err);
     res.status(500).json({ success: false, error: err.message });
   }
+}
+
+// Helper: next 1st of the month as UNIX timestamp
+function getNextFirstOfMonthUnix() {
+  const now = new Date();
+  return Math.floor(new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime() / 1000);
 }
