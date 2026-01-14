@@ -1,76 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>2-Class Membership</title>
-  <script src="https://js.stripe.com/v3/"></script>
-  <style>
-    body { font-family: sans-serif; background:#f7f7f7; padding:40px; }
-    .container { max-width:420px; margin:auto; background:white; padding:24px; border-radius:10px; }
-    button { width:100%; padding:12px; margin-top:16px; font-size:16px; cursor:pointer; }
-    input { width:100%; padding:8px; margin-top:8px; font-size:14px; }
-    #payment-element { margin-top:16px; }
-    #error-message { color:red; margin-top:12px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2-Class Membership</title>
+<style>
+  body { font-family: sans-serif; background:#f7f7f7; display:flex; justify-content:center; align-items:center; height:100vh; }
+  .container { background:white; padding:24px; border-radius:10px; max-width:400px; width:100%; text-align:center; }
+  input, button { width:100%; padding:12px; margin-top:12px; font-size:16px; }
+</style>
 </head>
 <body>
 <div class="container">
   <h2>2-Class Membership</h2>
-  <p>Charge today, renew monthly on the 1st. Cancel anytime via Stripe.</p>
-
   <input type="email" id="email" placeholder="Enter your email" required>
-  <div id="payment-element"></div>
-  <button id="subscribe">Subscribe $45</button>
-  <div id="error-message"></div>
+  <button id="checkout">Sign Up</button>
+  <div id="error" style="color:red; margin-top:12px;"></div>
 </div>
 
 <script>
-  const stripe = Stripe("pk_test_51QG3MjAXY9hpMKCtZnFYTiRFjCHqD8jjci5n8fCNQ4OfxKrAnYBGuk7Iq3jDE1NGTiT8SBCIl70RQ2h2HCavPDbW00oAxvTmIf");
-  const emailInput = document.getElementById("email");
-  const subscribeButton = document.getElementById("subscribe");
-  const errorMessage = document.getElementById("error-message");
-  let elements;
+document.getElementById("checkout").addEventListener("click", async () => {
+  const email = document.getElementById("email").value;
+  const errorEl = document.getElementById("error");
+  errorEl.textContent = "";
 
-  async function initializePayment() {
+  if (!email) { errorEl.textContent = "Please enter your email"; return; }
+
+  try {
     const res = await fetch("https://stripe-2class-membership.vercel.app/api/create-subscription", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: emailInput.value.trim() })
+      body: JSON.stringify({ email })
     });
+
     const data = await res.json();
-
-    if (!data.success) {
-      errorMessage.textContent = data.error || "Unable to initialize payment";
-      return null;
+    if (data.url) {
+      window.location.href = data.url; // redirect to Stripe Checkout
+    } else {
+      errorEl.textContent = data.error || "Something went wrong";
     }
-
-    elements = stripe.elements({ clientSecret: data.client_secret });
-    const paymentElement = elements.create("payment");
-    paymentElement.mount("#payment-element");
-    return elements;
+  } catch (err) {
+    errorEl.textContent = "Network error. Please try again.";
   }
-
-  subscribeButton.addEventListener("click", async () => {
-    errorMessage.textContent = "";
-
-    if (!emailInput.value.trim()) {
-      errorMessage.textContent = "Please enter a valid email.";
-      return;
-    }
-
-    if (!elements) {
-      const mounted = await initializePayment();
-      if (!mounted) return;
-    }
-
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: window.location.href }
-    });
-
-    if (error) errorMessage.textContent = error.message;
-  });
+});
 </script>
 </body>
 </html>
