@@ -1,46 +1,36 @@
-<script>
-const stripe = Stripe("pk_test_51QG3MjAXY9hpMKCtZnFYTiRFjCHqD8jjci5n8fCNQ4OfxKrAnYBGuk7Iq3jDE1NGTiT8SBCIl70RQ2h2HCavPDbW00oAxvTmIf");
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxskp60gMiBpfy_KXgdXqoiAU6VGGbXGoD_s-Gbhp5mrHPV_C7VMCaX-a7V1GKAPp4v/exec";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>2-Class Membership</title>
+  <style>
+    body { font-family: sans-serif; background:#f7f7f7; padding:40px;}
+    .container { max-width:420px; margin:auto; background:white; padding:24px; border-radius:10px;}
+    button { width:100%; padding:12px; margin-top:16px; font-size:16px; cursor:pointer;}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>2-Class Membership</h2>
+    <p>Charge today, renew monthly. Cancel anytime via Stripe.</p>
 
-let elements;
-let paymentElement;
-let clientSecret;
+    <!-- Button to start checkout -->
+    <button onclick="goToCheckout()">Sign Up for 2-Class Membership ($45/month)</button>
+  </div>
 
-// 1️⃣ Get client_secret as soon as page loads
-async function fetchClientSecret() {
-  const emailInput = document.getElementById("email").value || "test@example.com"; // temp
-  const res = await fetch(APPS_SCRIPT_URL, {
-    method: "POST",
-    body: JSON.stringify({ email: emailInput })
-  });
-  const data = await res.json();
-  if (!data.success) {
-    document.getElementById("error-message").textContent = data.error || "Error fetching client secret";
-    return;
-  }
-  clientSecret = data.client_secret;
-
-  // 2️⃣ Mount Payment Element
-  elements = stripe.elements({ clientSecret });
-  paymentElement = elements.create("payment");
-  paymentElement.mount("#payment-element");
-}
-
-// 3️⃣ Handle form submit
-document.getElementById("payment-form").addEventListener("submit", async (e)=>{
-  e.preventDefault();
-  const email = document.getElementById("email").value;
-
-  const { error } = await stripe.confirmPayment({
-    elements,
-    confirmParams: { return_url: window.location.href },
-  });
-
-  if (error) {
-    document.getElementById("error-message").textContent = error.message;
-  }
-});
-
-// 4️⃣ Initialize on page load
-window.addEventListener("DOMContentLoaded", fetchClientSecret);
-</script>
+  <script>
+    function goToCheckout() {
+      fetch("YOUR_APPS_SCRIPT_URL", {
+        method: "POST",
+        body: JSON.stringify({ domain: window.location.origin })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.checkout_url) window.location = data.checkout_url;
+        else alert("Error: " + (data.error || "Cannot start checkout"));
+      });
+    }
+  </script>
+</body>
+</html>
