@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>2-Class Membership</title>
   <script src="https://js.stripe.com/v3/"></script>
   <style>
@@ -45,7 +45,6 @@
       return null;
     }
 
-    // Mount Stripe Payment Element
     elements = stripe.elements({ clientSecret: data.client_secret });
     const paymentElement = elements.create("payment");
     paymentElement.mount("#payment-element");
