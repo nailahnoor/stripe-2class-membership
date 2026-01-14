@@ -1,52 +1,33 @@
 // /api/create-subscription.js
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2023-08-16", // latest stable
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2022-11-15" });
+const PRICE_ID = "price_1SpaQ1AXY9hpMKCt5BfdzbVQ"; // replace with your Stripe Price ID
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: "Email required" });
 
   try {
-    const { email } = req.body;
+    // 1️⃣ Create customer
+    const customer = await stripe.customers.create({ email });
 
-    if (!email) {
-      return res.status(400).json({ error: "Email is required" });
-    }
-
-    // 1️⃣ Create or retrieve customer
-    const customers = await stripe.customers.list({ email, limit: 1 });
-    const customer =
-      customers.data.length > 0
-        ? customers.data[0]
-        : await stripe.customers.create({ email });
-
-    // 2️⃣ Create Checkout Session for subscription
-    const session = await stripe.checkout.sessions.create({
+    // 2️⃣ Create subscription with billing anchor on the 1st
+    const subscription = await stripe.subscriptions.create({
       customer: customer.id,
-      mode: "subscription",
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price: "price_1SpaQ1AXY9hpMKCt5BfdzbVQ", // your 2-class price
-          quantity: 1,
-        },
-      ],
-      subscription_data: {
-        billing_cycle_anchor_config: { day_of_month: 1 }, // charge on the 1st
-        proration_behavior: "none",
-      },
-      allow_promotion_codes: true,
-      success_url: `${req.headers.origin}/success.html`,
-      cancel_url: `${req.headers.origin}/cancel.html`,
+      items: [{ price: PRICE_ID }],
+      billing_cycle_anchor_config: { day_of_month: 1 },
+      proration_behavior: "none",
+      expand: ["latest_invoice.payment_intent"],
     });
 
-    res.status(200).json({ url: session.url });
+    const client_secret = subscription.latest_invoice.payment_intent.client_secret;
+    res.status(200).json({ success: true, client_secret });
+
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ success: false, error: err.message });
   }
 }
