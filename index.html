@@ -7,7 +7,7 @@
   <script src="https://js.stripe.com/v3/"></script>
   <style>
     body { font-family: sans-serif; background:#f7f7f7; padding:40px; }
-    .container { max-width: 420px; margin:auto; background:white; padding:24px; border-radius:10px; }
+    .container { max-width:420px; margin:auto; background:white; padding:24px; border-radius:10px; }
     button { width:100%; padding:12px; margin-top:16px; font-size:16px; cursor:pointer; }
     #error-message { color:red; margin-top:12px; }
   </style>
@@ -15,65 +15,59 @@
 <body>
 <div class="container">
   <h2>2-Class Membership</h2>
-  <p>Charge today, renew monthly on the 1st. Cancel anytime via Stripe.</p>
+  <p>Charge $100 today, renew monthly on the 1st. Cancel anytime via Stripe.</p>
 
   <form id="payment-form">
     <div id="payment-element"></div>
     <input type="email" id="email" placeholder="Email" required style="width:100%; padding:8px; margin-top:8px;">
-    <button id="submit">Pay $45</button>
+    <button id="submit">Subscribe</button>
     <div id="error-message"></div>
   </form>
 </div>
 
 <script>
   const stripe = Stripe("pk_test_51QG3MjAXY9hpMKCtZnFYTiRFjCHqD8jjci5n8fCNQ4OfxKrAnYBGuk7Iq3jDE1NGTiT8SBCIl70RQ2h2HCavPDbW00oAxvTmIf");
+
   const BACKEND_URL = "https://stripe-2class-membership.vercel.app/api/create-subscription";
 
   async function initialize() {
     const form = document.getElementById("payment-form");
     const emailInput = document.getElementById("email");
-    const errorDiv = document.getElementById("error-message");
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      errorDiv.textContent = "";
+      document.getElementById("error-message").textContent = "";
 
       try {
+        // 1️⃣ Get client_secret from backend
         const res = await fetch(BACKEND_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: emailInput.value }),
+          body: JSON.stringify({ email: emailInput.value })
         });
 
         const data = await res.json();
 
-        if (!data.success) {
-          errorDiv.textContent = data.error || "Something went wrong";
+        if (data.requires_payment === false) {
+          alert("Subscription successfully created! No payment required.");
           return;
         }
 
-        // If subscription requires payment
-        if (data.requires_payment) {
-          const elements = stripe.elements({ clientSecret: data.client_secret });
-          const paymentElement = elements.create("payment");
-          paymentElement.mount("#payment-element");
+        // 2️⃣ Mount Payment Element
+        const elements = stripe.elements({ clientSecret: data.client_secret });
+        const paymentElement = elements.create("payment");
+        paymentElement.mount("#payment-element");
 
-          const { error } = await stripe.confirmPayment({
-            elements,
-            confirmParams: { return_url: window.location.href }
-          });
+        // 3️⃣ Confirm payment
+        const { error } = await stripe.confirmPayment({
+          elements,
+          confirmParams: { return_url: window.location.href }
+        });
 
-          if (error) {
-            errorDiv.textContent = error.message;
-          }
-
-        } else {
-          // $0 subscription: no payment needed
-          alert("Subscription successfully created! No payment required.");
-        }
+        if (error) document.getElementById("error-message").textContent = error.message;
 
       } catch (err) {
-        errorDiv.textContent = err.message;
+        document.getElementById("error-message").textContent = err.message;
       }
     });
   }
