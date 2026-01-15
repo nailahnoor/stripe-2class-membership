@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   let rawBody = [];
 
   try {
-    // Read raw request body
+    // Read raw request body using Node stream (no raw-body)
     for await (const chunk of req) {
       rawBody.push(chunk);
     }
@@ -24,17 +24,14 @@ export default async function handler(req, res) {
       process.env.STRIPE_WEBHOOK_SECRET
     );
 
-    // Handle first payment success
     if (event.type === "invoice.payment_succeeded") {
       const invoice = event.data.object;
-
       if (invoice.subscription && invoice.billing_reason === "subscription_create") {
         console.log("First payment succeeded for subscription:", invoice.subscription);
       }
     }
 
     res.json({ received: true });
-
   } catch (err) {
     console.error("Webhook error:", err.message);
     res.status(400).send(`Webhook Error: ${err.message}`);
