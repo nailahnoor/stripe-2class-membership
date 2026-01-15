@@ -5,7 +5,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2022-11-15",
 });
 
-const PRICE_ID = "price_1R6xxcAXY9hpMKCtAWp2nhos"; // ✅ TEST MODE price
+// ✅ TEST MODE PRICE ID ONLY
+const PRICE_ID = "price_1R6xxcAXY9hpMKCtAWp2nhos";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -21,17 +22,16 @@ export default async function handler(req, res) {
     // 1️⃣ Create customer
     const customer = await stripe.customers.create({ email });
 
-    // 2️⃣ Create subscription that REQUIRES payment immediately
+    // 2️⃣ Create subscription WITH immediate charge
     const subscription = await stripe.subscriptions.create({
       customer: customer.id,
       items: [{ price: PRICE_ID }],
 
-      // 🔥 THIS IS THE KEY
+      // 🔥 FORCE FIRST PAYMENT NOW
+      billing_cycle_anchor: "now",
+      proration_behavior: "create_prorations",
+
       payment_behavior: "default_incomplete",
-
-      // Align future billing to the 1st
-      billing_cycle_anchor_config: { day_of_month: 1 },
-
       expand: ["latest_invoice.payment_intent"],
     });
 
@@ -39,14 +39,16 @@ export default async function handler(req, res) {
       subscription.latest_invoice?.payment_intent;
 
     if (!paymentIntent) {
-      return res.status(500).json({
-        error: "PaymentIntent was not created",
+      return res.status(200).json({
+        requires_payment: false,
       });
     }
 
-    res.json({
-      clientSecret: paymentIntent.client_secret,
+    res.status(200).json({
+      requires_payment: true,
+      client_secret: paymentIntent.client_secret,
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
