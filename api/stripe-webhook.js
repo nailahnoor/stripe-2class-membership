@@ -1,10 +1,8 @@
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2022-11-15",
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2022-11-15" });
 
-// Disable Vercel's default body parser
+// Disable Vercel body parser
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
@@ -14,20 +12,19 @@ export default async function handler(req, res) {
   let rawBody = [];
 
   try {
-    // Collect chunks from the request stream
+    // Read raw request body
     for await (const chunk of req) {
       rawBody.push(chunk);
     }
     rawBody = Buffer.concat(rawBody);
 
-    // Construct Stripe event
     const event = stripe.webhooks.constructEvent(
       rawBody,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
     );
 
-    // ✅ Handle events
+    // Handle first payment success
     if (event.type === "invoice.payment_succeeded") {
       const invoice = event.data.object;
 
@@ -37,6 +34,7 @@ export default async function handler(req, res) {
     }
 
     res.json({ received: true });
+
   } catch (err) {
     console.error("Webhook error:", err.message);
     res.status(400).send(`Webhook Error: ${err.message}`);
