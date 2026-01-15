@@ -2,32 +2,32 @@ import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2022-11-15" });
 
+// Vercel body parser disabled for webhooks
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end("Method Not Allowed");
 
   const sig = req.headers["stripe-signature"];
-  let rawBody = [];
 
   try {
-    for await (const chunk of req) {
-      rawBody.push(chunk);
-    }
-    rawBody = Buffer.concat(rawBody);
+    // Read request body as text
+    const rawBody = await req.text();
 
+    // Construct Stripe event
     const event = stripe.webhooks.constructEvent(
       rawBody,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
     );
 
+    // Handle subscription first payment
     if (event.type === "invoice.payment_succeeded") {
       const invoice = event.data.object;
 
       if (invoice.subscription && invoice.billing_reason === "subscription_create") {
         console.log("✅ First payment succeeded for subscription:", invoice.subscription);
-        // Add extra logic here if needed (update DB, send email)
+        // Add additional logic here (update DB, send email, etc.)
       }
     }
 
