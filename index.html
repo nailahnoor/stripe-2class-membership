@@ -29,37 +29,62 @@
 const stripe = Stripe("pk_test_51QG3MjAXY9hpMKCtZnFYTiRFjCHqD8jjci5n8fCNQ4OfxKrAnYBGuk7Iq3jDE1NGTiT8SBCIl70RQ2h2HCavPDbW00oAxvTmIf");
 const BACKEND_URL = "https://stripe-2class-membership.vercel.app/api/create-subscription";
 
-const form = document.getElementById("payment-form");
-const emailInput = document.getElementById("email");
+// Store global elements
+let elements, paymentElement;
 
+// 1️⃣ Initialize Payment Element on page load
+async function initPayment() {
+  const emailValue = document.getElementById("email").value || "test@example.com";
+
+  try {
+    const res = await fetch(BACKEND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: emailValue })
+    });
+
+    if (!res.ok) throw new Error("Failed to fetch client secret from backend");
+    const data = await res.json();
+
+    // Create Elements with client_secret
+    elements = stripe.elements({ clientSecret: data.client_secret });
+    paymentElement = elements.create("payment");
+    paymentElement.mount("#payment-element");
+
+    // Listen for realtime validation errors
+    paymentElement.on("change", (event) => {
+      const displayError = document.getElementById("error-message");
+      displayError.textContent = event.error ? event.error.message : "";
+    });
+
+  } catch (err) {
+    document.getElementById("error-message").textContent = err.message;
+  }
+}
+
+// Call initPayment on page load
+initPayment();
+
+// 2️⃣ Handle form submission
+const form = document.getElementById("payment-form");
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   document.getElementById("error-message").textContent = "";
 
+  if (!elements) {
+    document.getElementById("error-message").textContent = "Payment not initialized. Try reloading the page.";
+    return;
+  }
+
   try {
-    // 1️⃣ Request client_secret from backend
-    const res = await fetch(BACKEND_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: emailInput.value })
-    });
-
-    if (!res.ok) throw new Error("Failed to reach server");
-
-    const data = await res.json();
-
-    // 2️⃣ Mount Stripe Payment Element
-    const elements = stripe.elements({ clientSecret: data.client_secret });
-    const paymentElement = elements.create("payment");
-    paymentElement.mount("#payment-element");
-
-    // 3️⃣ Confirm payment
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: { return_url: window.location.href }
     });
 
-    if (error) document.getElementById("error-message").textContent = error.message;
+    if (error) {
+      document.getElementById("error-message").textContent = error.message;
+    }
 
   } catch (err) {
     document.getElementById("error-message").textContent = err.message;
