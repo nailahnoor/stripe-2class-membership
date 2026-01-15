@@ -1,70 +1,35 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>2-Class Membership</title>
-  <script src="https://js.stripe.com/v3/"></script>
-  <style>
-    body { font-family: sans-serif; background:#f7f7f7; padding:40px; }
-    .container { max-width:420px; margin:auto; background:white; padding:24px; border-radius:10px; }
-    button { width:100%; padding:12px; margin-top:16px; font-size:16px; cursor:pointer; }
-    #error-message { color:red; margin-top:12px; }
-  </style>
-</head>
-<body>
-<div class="container">
-  <h2>2-Class Membership</h2>
-  <p>Charge $100 today, then renew monthly on the 1st. Cancel anytime via Stripe.</p>
+import Stripe from "stripe";
 
-  <form id="payment-form">
-    <div id="payment-element"></div>
-    <input type="email" id="email" placeholder="Email" required style="width:100%; padding:8px; margin-top:8px;">
-    <button id="submit">Subscribe</button>
-    <div id="error-message"></div>
-  </form>
-</div>
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2022-11-15",
+});
 
-<script>
-  const stripe = Stripe("pk_test_51QG3MjAXY9hpMKCtZnFYTiRFjCHqD8jjci5n8fCNQ4OfxKrAnYBGuk7Iq3jDE1NGTiT8SBCIl70RQ2h2HCavPDbW00oAxvTmIf");
-  const BACKEND_URL = "/api/create-subscription"; // relative path
+const PRICE_ID = process.env.PRICE_ID;
 
-  const form = document.getElementById("payment-form");
-  const emailInput = document.getElementById("email");
+export default async function handler(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    document.getElementById("error-message").textContent = "";
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: "Email required" });
 
-    try {
-      // 1️⃣ Request client_secret from backend
-      const res = await fetch(BACKEND_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailInput.value })
-      });
+  try {
+    // 1️⃣ Create Stripe customer
+    const customer = await stripe.customers.create({ email });
 
-      if (!res.ok) throw new Error("Failed to reach server");
+    // 2️⃣ Create subscription (charge immediately)
+    const subscription = await stripe.subscriptions.create({
+      customer: customer.id,
+      items: [{ price: PRICE_ID }],
+      payment_behavior: "default_incomplete",
+      expand: ["latest_invoice.payment_intent"],
+    });
 
-      const data = await res.json();
+    const paymentIntent = subscription.latest_invoice.payment_intent;
+    if (!paymentIntent) throw new Error("Missing payment_intent");
 
-      // 2️⃣ Mount Stripe Payment Element
-      const elements = stripe.elements({ clientSecret: data.client_secret });
-      const paymentElement = elements.create("payment");
-      paymentElement.mount("#payment-element");
-
-      // 3️⃣ Confirm payment on submit
-      const { error } = await stripe.confirmPayment({
-        elements,
-        confirmParams: { return_url: "/confirmation.html" } // redirect to confirmation page
-      });
-
-      if (error) document.getElementById("error-message").textContent = error.message;
-
-    } catch (err) {
-      document.getElementById("error-message").textContent = err.message;
-    }
-  });
-</script>
-</body>
-</html>
+    res.status(200).json({ client_secret: paymentIntent.client_secret });
+  } catch (err) {
+    console.error("Stripe error:", err);
+    res.status(500).json({ error: err.message });
+  }
+}
