@@ -4,7 +4,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2022-11-
 const PRICE_ID = "price_1R6xxcAXY9hpMKCtAWp2nhos"; // replace with your price ID
 
 export default async function handler(req, res) {
-  // ✅ CORS headers for production frontend
+  // CORS headers
   res.setHeader("Access-Control-Allow-Origin", "https://stripe-2class-membership.vercel.app");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -16,15 +16,21 @@ export default async function handler(req, res) {
   if (!email) return res.status(400).json({ error: "Email required" });
 
   try {
-    // 1️⃣ Create or retrieve customer
     const customer = await stripe.customers.create({ email });
 
-    // 2️⃣ Create subscription with immediate PaymentIntent
+    // Calculate next month's 1st day timestamp
+    const now = new Date();
+    const nextMonthFirst = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const anchorTimestamp = Math.floor(nextMonthFirst.getTime() / 1000);
+
+    // Create subscription with billing_cycle_anchor = next 1st
     const subscription = await stripe.subscriptions.create({
       customer: customer.id,
       items: [{ price: PRICE_ID }],
-      payment_behavior: "default_incomplete",
-      expand: ["latest_invoice.payment_intent"],
+      payment_behavior: "default_incomplete", // allows PaymentIntent for immediate charge
+      billing_cycle_anchor: anchorTimestamp,
+      proration_behavior: "none",
+      expand: ["latest_invoice.payment_intent"]
     });
 
     const client_secret = subscription.latest_invoice.payment_intent.client_secret;
