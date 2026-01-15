@@ -5,7 +5,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2022-11-15",
 });
 
-const PRICE_ID = "price_1R6xxcAXY9hpMKCtAWp2nhos"; // TEST price
+// Replace with your test Price ID
+const PRICE_ID = "price_1R6xxcAXY9hpMKCtAWp2nhos";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -14,39 +15,33 @@ export default async function handler(req, res) {
 
   const { email } = req.body;
   if (!email) {
-    return res.status(400).json({ error: "Email required" });
+    return res.status(400).json({ error: "Email is required" });
   }
 
   try {
-    // 1️⃣ Customer
+    // 1️⃣ Create Stripe customer
     const customer = await stripe.customers.create({ email });
 
-    // 2️⃣ Subscription — FORCE PAYMENT
+    // 2️⃣ Create subscription with immediate payment
     const subscription = await stripe.subscriptions.create({
       customer: customer.id,
       items: [{ price: PRICE_ID }],
-
-      // 🔥 THIS IS CRITICAL
-      billing_cycle_anchor: "now",
-      proration_behavior: "none",
-      payment_behavior: "default_incomplete",
-
+      payment_behavior: "default_incomplete", // ensures PaymentIntent is created
       expand: ["latest_invoice.payment_intent"],
     });
 
-    const paymentIntent =
-      subscription.latest_invoice?.payment_intent;
+    // 3️⃣ Extract client_secret from the PaymentIntent
+    const client_secret = subscription.latest_invoice.payment_intent?.client_secret;
 
-    if (!paymentIntent) {
-      throw new Error("PaymentIntent was not created");
+    if (!client_secret) {
+      // fallback if subscription doesn't require immediate payment
+      return res.status(200).json({ client_secret: null, requires_payment: false });
     }
 
-    res.status(200).json({
-      client_secret: paymentIntent.client_secret,
-    });
+    res.status(200).json({ client_secret, requires_payment: true });
 
   } catch (err) {
-    console.error(err);
+    console.error("Stripe error:", err);
     res.status(500).json({ error: err.message });
   }
 }
