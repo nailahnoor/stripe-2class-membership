@@ -15,7 +15,7 @@
 <body>
 <div class="container">
   <h2>2-Class Membership</h2>
-  <p>Charge $100 today, then renew monthly on the 1st. Cancel anytime via Stripe.</p>
+  <p>Charge $100 today, then renew monthly. Cancel anytime via Stripe.</p>
 
   <form id="payment-form">
     <div id="payment-element"></div>
@@ -29,50 +29,35 @@
 const stripe = Stripe("pk_test_51QG3MjAXY9hpMKCtZnFYTiRFjCHqD8jjci5n8fCNQ4OfxKrAnYBGuk7Iq3jDE1NGTiT8SBCIl70RQ2h2HCavPDbW00oAxvTmIf");
 const BACKEND_URL = "https://stripe-2class-membership.vercel.app/api/create-subscription";
 
-let elements, paymentElement;
+const form = document.getElementById("payment-form");
+const emailInput = document.getElementById("email");
 
-async function initPayment() {
-  const emailInput = document.getElementById("email").value || "test@example.com";
-
-  try {
-    const res = await fetch(BACKEND_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: emailInput })
-    });
-    if (!res.ok) throw new Error("Failed to fetch client secret from backend");
-
-    const data = await res.json();
-
-    elements = stripe.elements({ clientSecret: data.client_secret });
-    paymentElement = elements.create("payment");
-    paymentElement.mount("#payment-element");
-
-    paymentElement.on("change", (event) => {
-      document.getElementById("error-message").textContent = event.error ? event.error.message : "";
-    });
-
-  } catch (err) {
-    document.getElementById("error-message").textContent = err.message;
-  }
-}
-
-// Initialize Payment Element on page load
-initPayment();
-
-document.getElementById("payment-form").addEventListener("submit", async (e) => {
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
   document.getElementById("error-message").textContent = "";
 
-  if (!elements) {
-    document.getElementById("error-message").textContent = "Payment not initialized. Try reloading the page.";
-    return;
-  }
-
   try {
+    // 1️⃣ Request client_secret from backend
+    const res = await fetch(BACKEND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: emailInput.value })
+    });
+
+    if (!res.ok) throw new Error("Failed to reach server");
+    const data = await res.json();
+
+    // 2️⃣ Mount Stripe Payment Element
+    const elements = stripe.elements({ clientSecret: data.client_secret });
+    const paymentElement = elements.create("payment");
+    paymentElement.mount("#payment-element");
+
+    // 3️⃣ Confirm payment and redirect to confirmation page
     const { error } = await stripe.confirmPayment({
       elements,
-      confirmParams: { return_url: window.location.href }
+      confirmParams: { 
+        return_url: "https://stripe-2class-membership.vercel.app/success.html"
+      }
     });
 
     if (error) document.getElementById("error-message").textContent = error.message;
