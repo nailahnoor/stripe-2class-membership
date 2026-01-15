@@ -1,11 +1,10 @@
 // /api/create-subscription.js
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2022-11-15",
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2022-11-15" });
 
-const PRICE_ID = "price_1R6xxcAXY9hpMKCtAWp2nhos"; // your test price ID
+// ⚡ Replace with your **test mode price ID** for $100/month subscription
+const PRICE_ID = "price_1R6xxcAXY9hpMKCtAWp2nhos";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -19,27 +18,28 @@ export default async function handler(req, res) {
     // 1️⃣ Create Stripe customer
     const customer = await stripe.customers.create({ email });
 
-    // 2️⃣ Create subscription
+    // 2️⃣ Create subscription with billing anchor on 1st of month
     const subscription = await stripe.subscriptions.create({
       customer: customer.id,
       items: [{ price: PRICE_ID }],
       billing_cycle_anchor_config: { day_of_month: 1 },
       proration_behavior: "none",
-      expand: ["latest_invoice.payment_intent"],
+      expand: ["latest_invoice.payment_intent"], // ensures payment intent is returned
     });
 
-    // 3️⃣ Check if payment is required
+    // 3️⃣ Get client secret if a payment is required
     const paymentIntent = subscription.latest_invoice?.payment_intent || null;
 
-    res.status(200).json({
-      success: true,
-      client_secret: paymentIntent?.client_secret || null,
-      subscription_id: subscription.id,
-      requires_payment: !!paymentIntent, // true if user needs to pay
-    });
+    if (paymentIntent) {
+      // Payment is required
+      res.status(200).json({ client_secret: paymentIntent.client_secret, requires_payment: true });
+    } else {
+      // Free subscription
+      res.status(200).json({ requires_payment: false });
+    }
 
   } catch (err) {
-    console.error("Stripe error:", err);
-    res.status(500).json({ success: false, error: err.message });
+    console.error(err);
+    res.status(500).json({ error: err.message });
   }
 }
