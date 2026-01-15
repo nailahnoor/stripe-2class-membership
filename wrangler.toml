@@ -1,9 +1,0 @@
-name = "stripe-2class-membership"
-compatibility_date = "2026-01-15"
-type = "javascript"
-
-# entry-point for the Worker
-main = "api/create-subscription.js"
-
-[vars]
-STRIPE_SECRET_KEY = "sk_test_..." # Use environment variables in Cloudflare dashboard instead
