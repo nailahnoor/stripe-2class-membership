@@ -49,8 +49,7 @@ async function initPayment() {
     paymentElement.mount("#payment-element");
 
     paymentElement.on("change", (event) => {
-      const displayError = document.getElementById("error-message");
-      displayError.textContent = event.error ? event.error.message : "";
+      document.getElementById("error-message").textContent = event.error ? event.error.message : "";
     });
 
   } catch (err) {
