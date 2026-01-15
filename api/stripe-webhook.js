@@ -1,29 +1,44 @@
 import Stripe from "stripe";
-import getRawBody from "raw-body";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2022-11-15" });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2022-11-15",
+});
 
+// Disable Vercel's default body parser
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
+  if (req.method !== "POST") return res.status(405).end("Method Not Allowed");
+
   const sig = req.headers["stripe-signature"];
-  let event;
+  let rawBody = [];
 
   try {
-    const rawBody = await getRawBody(req);
-    event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
-  } catch (err) {
-    console.error("Webhook verification failed:", err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-
-  if (event.type === "invoice.payment_succeeded") {
-    const invoice = event.data.object;
-
-    if (invoice.subscription && invoice.billing_reason === "subscription_create") {
-      console.log("First payment succeeded for subscription:", invoice.subscription);
+    // Collect chunks from the request stream
+    for await (const chunk of req) {
+      rawBody.push(chunk);
     }
-  }
+    rawBody = Buffer.concat(rawBody);
 
-  res.json({ received: true });
+    // Construct Stripe event
+    const event = stripe.webhooks.constructEvent(
+      rawBody,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+
+    // ✅ Handle events
+    if (event.type === "invoice.payment_succeeded") {
+      const invoice = event.data.object;
+
+      if (invoice.subscription && invoice.billing_reason === "subscription_create") {
+        console.log("First payment succeeded for subscription:", invoice.subscription);
+      }
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error("Webhook error:", err.message);
+    res.status(400).send(`Webhook Error: ${err.message}`);
+  }
 }
