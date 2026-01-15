@@ -15,7 +15,7 @@
 <body>
 <div class="container">
   <h2>2-Class Membership</h2>
-  <p>Charge $100 today, then renew monthly. Cancel anytime via Stripe.</p>
+  <p>Charge $100 today, then renew monthly on the 1st. Cancel anytime via Stripe.</p>
 
   <form id="payment-form">
     <div id="payment-element"></div>
@@ -26,46 +26,45 @@
 </div>
 
 <script>
-const stripe = Stripe("pk_test_51QG3MjAXY9hpMKCtZnFYTiRFjCHqD8jjci5n8fCNQ4OfxKrAnYBGuk7Iq3jDE1NGTiT8SBCIl70RQ2h2HCavPDbW00oAxvTmIf");
-const BACKEND_URL = "https://stripe-2class-membership.vercel.app/api/create-subscription";
+  const stripe = Stripe("pk_test_51QG3MjAXY9hpMKCtZnFYTiRFjCHqD8jjci5n8fCNQ4OfxKrAnYBGuk7Iq3jDE1NGTiT8SBCIl70RQ2h2HCavPDbW00oAxvTmIf");
+  const BACKEND_URL = "/api/create-subscription"; // relative path
 
-const form = document.getElementById("payment-form");
-const emailInput = document.getElementById("email");
+  const form = document.getElementById("payment-form");
+  const emailInput = document.getElementById("email");
 
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  document.getElementById("error-message").textContent = "";
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    document.getElementById("error-message").textContent = "";
 
-  try {
-    // 1️⃣ Request client_secret from backend
-    const res = await fetch(BACKEND_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: emailInput.value })
-    });
+    try {
+      // 1️⃣ Request client_secret from backend
+      const res = await fetch(BACKEND_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailInput.value })
+      });
 
-    if (!res.ok) throw new Error("Failed to reach server");
-    const data = await res.json();
+      if (!res.ok) throw new Error("Failed to reach server");
 
-    // 2️⃣ Mount Stripe Payment Element
-    const elements = stripe.elements({ clientSecret: data.client_secret });
-    const paymentElement = elements.create("payment");
-    paymentElement.mount("#payment-element");
+      const data = await res.json();
 
-    // 3️⃣ Confirm payment and redirect to confirmation page
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { 
-        return_url: "https://stripe-2class-membership.vercel.app/success.html"
-      }
-    });
+      // 2️⃣ Mount Stripe Payment Element
+      const elements = stripe.elements({ clientSecret: data.client_secret });
+      const paymentElement = elements.create("payment");
+      paymentElement.mount("#payment-element");
 
-    if (error) document.getElementById("error-message").textContent = error.message;
+      // 3️⃣ Confirm payment on submit
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: { return_url: "/confirmation.html" } // redirect to confirmation page
+      });
 
-  } catch (err) {
-    document.getElementById("error-message").textContent = err.message;
-  }
-});
+      if (error) document.getElementById("error-message").textContent = error.message;
+
+    } catch (err) {
+      document.getElementById("error-message").textContent = err.message;
+    }
+  });
 </script>
 </body>
 </html>
