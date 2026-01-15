@@ -1,54 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>2-Class Membership</title>
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f7f7f7;
+      padding: 40px;
+    }
+    .container {
+      max-width: 420px;
+      margin: auto;
+      background: white;
+      padding: 24px;
+      border-radius: 10px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 16px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #error-message {
+      color: red;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h2>2-Class Membership</h2>
+    <p>$100 today, billed monthly. Cancel anytime.</p>
+
+    <form id="payment-form">
+      <input
+        type="email"
+        id="email"
+        placeholder="Email"
+        required
+        style="width:100%; padding:8px;"
+      />
+
+      <div id="payment-element" style="margin-top:16px;"></div>
+
+      <button id="submit">Subscribe</button>
+      <div id="error-message"></div>
+    </form>
+  </div>
+
 <script>
-  const stripe = Stripe("pk_test_51QG3MjAXY9hpMKCtZnFYTiRFjCHqD8jjci5n8fCNQ4OfxKrAnYBGuk7Iq3jDE1NGTiT8SBCIl70RQ2h2HCavPDbW00oAxvTmIf");
-  const BACKEND_URL = "https://stripe-2class-membership.vercel.app/api/create-subscription";
+  const stripe = Stripe(
+    "pk_test_51QG3MjAXY9hpMKCtZnFYTiRFjCHqD8jjci5n8fCNQ4OfxKrAnYBGuk7Iq3jDE1NGTiT8SBCIl70RQ2h2HCavPDbW00oAxvTmIf"
+  );
+
+  const BACKEND_URL =
+    "https://stripe-2class-membership.vercel.app/api/create-subscription";
 
   const form = document.getElementById("payment-form");
   const emailInput = document.getElementById("email");
-  const errorDiv = document.getElementById("error-message");
+  const errorEl = document.getElementById("error-message");
 
   let elements;
+  let paymentElement;
+  let clientSecretLoaded = false;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    errorDiv.textContent = "";
+    errorEl.textContent = "";
 
     try {
-      // 1️⃣ Create subscription + PaymentIntent
-      const res = await fetch(BACKEND_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailInput.value }),
-      });
-
-      const data = await res.json();
-
-      if (!data.clientSecret) {
-        throw new Error(data.error || "No client secret returned");
-      }
-
-      // 2️⃣ Mount Payment Element
-      elements = stripe.elements({ clientSecret: data.clientSecret });
-      const paymentElement = elements.create("payment");
-      paymentElement.mount("#payment-element");
-
-      // 3️⃣ Confirm payment
-      form.onsubmit = async (event) => {
-        event.preventDefault();
-
-        const { error } = await stripe.confirmPayment({
-          elements,
-          confirmParams: {
-            return_url: window.location.href,
-          },
+      // 1️⃣ FIRST CLICK → create subscription & load payment UI
+      if (!clientSecretLoaded) {
+        const res = await fetch(BACKEND_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: emailInput.value }),
         });
 
-        if (error) {
-          errorDiv.textContent = error.message;
+        const data = await res.json();
+
+        if (!data.requires_payment) {
+          alert("Subscription created — no payment required.");
+          return;
         }
-      };
+
+        elements = stripe.elements({ clientSecret: data.client_secret });
+        paymentElement = elements.create("payment");
+        paymentElement.mount("#payment-element");
+
+        clientSecretLoaded = true;
+        return; // ⬅️ wait for second click
+      }
+
+      // 2️⃣ SECOND CLICK → confirm payment
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: window.location.href,
+        },
+      });
+
+      if (error) {
+        errorEl.textContent = error.message;
+      }
 
     } catch (err) {
-      errorDiv.textContent = err.message;
+      errorEl.textContent = err.message;
     }
   });
 </script>
+</body>
+</html>
