@@ -16,24 +16,27 @@ export default async function handler(req, res) {
   if (!email) return res.status(400).json({ error: "Email required" });
 
   try {
+    // 1️⃣ Create customer
     const customer = await stripe.customers.create({ email });
 
-    // Calculate next month's 1st day timestamp
+    // 2️⃣ Calculate timestamp for the next 1st of the month
     const now = new Date();
     const nextMonthFirst = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const anchorTimestamp = Math.floor(nextMonthFirst.getTime() / 1000);
 
-    // Create subscription with billing_cycle_anchor = next 1st
+    // 3️⃣ Create subscription
     const subscription = await stripe.subscriptions.create({
       customer: customer.id,
       items: [{ price: PRICE_ID }],
-      payment_behavior: "default_incomplete", // allows PaymentIntent for immediate charge
-      billing_cycle_anchor: anchorTimestamp,
-      proration_behavior: "none",
+      payment_behavior: "allow_incomplete", // allows PaymentIntent to be confirmed immediately
+      billing_cycle_anchor: anchorTimestamp, // sets future invoices on the 1st
+      proration_behavior: "none",           // no proration
+      trial_end: "now",                      // charge immediately but first period ends on anchor
       expand: ["latest_invoice.payment_intent"]
     });
 
     const client_secret = subscription.latest_invoice.payment_intent.client_secret;
+
     res.status(200).json({ client_secret });
 
   } catch (err) {
