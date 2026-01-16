@@ -4,12 +4,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2022-11-15",
 });
 
-const PRICE_ID = process.env.PRICE_ID;
-
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method Not Allowed" });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
 
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: "Email required" });
@@ -18,7 +14,7 @@ export default async function handler(req, res) {
     // 1️⃣ Create customer
     const customer = await stripe.customers.create({ email });
 
-    // 2️⃣ Calculate next 1st of the month
+    // 2️⃣ Calculate next 1st of the month for billing cycle
     const now = new Date();
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const billing_cycle_anchor = Math.floor(nextMonth.getTime() / 1000);
@@ -26,7 +22,7 @@ export default async function handler(req, res) {
     // 3️⃣ Create subscription
     const subscription = await stripe.subscriptions.create({
       customer: customer.id,
-      items: [{ price: PRICE_ID }],
+      items: [{ price: process.env.PRICE_ID }],
       payment_behavior: "default_incomplete",
       billing_cycle_anchor: billing_cycle_anchor,
       proration_behavior: "none",
