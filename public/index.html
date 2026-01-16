@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>2 GROUP CLASSES / MONTHLY MEMBERSHIP TERMS</title>
+  <title>2 Group Classes Membership</title>
   <script src="https://js.stripe.com/v3/"></script>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Montserrat', sans-serif; background:#f7f7f7; padding:40px; }
+    body { font-family:'Montserrat',sans-serif; background:#f7f7f7; padding:40px; }
     .container { max-width:480px; margin:auto; background:white; padding:24px; border-radius:10px; }
-    h2 { text-transform: uppercase; }
-    button { width:100%; padding:12px; margin-top:16px; font-size:16px; cursor:pointer; background:#ff9900; border:none; color:white; text-transform: uppercase; }
+    h2 { text-transform:uppercase; }
+    button { width:100%; padding:12px; margin-top:16px; font-size:16px; cursor:pointer; background:#ff9900; border:none; color:white; text-transform:uppercase; }
     input, select { font-family: 'Montserrat', sans-serif; font-size:14px; color:#000; border-radius:4px; border:1px solid #ccc; padding:8px; margin-top:4px; }
     #error-message { color:red; margin-top:8px; font-weight:bold; }
     .step { display:none; }
@@ -26,7 +26,7 @@
 </head>
 <body>
 <div class="container">
-  
+
   <!-- STEP 1: TERMS -->
   <div id="step1" class="step" style="display:block;">
     <h2>2 GROUP CLASSES / MONTHLY MEMBERSHIP TERMS</h2>
@@ -48,12 +48,10 @@
   <div id="step2" class="step">
     <span class="back-arrow" id="backToStep1">← Back</span>
     <h2>CONTACT DETAILS</h2>
-
     <div class="field">
       <label for="name">FULL NAME</label>
       <input type="text" id="name" required>
     </div>
-
     <div class="field">
       <label for="phone">PHONE NUMBER</label>
       <div class="phone-group">
@@ -70,12 +68,10 @@
         <input type="tel" id="phone" required>
       </div>
     </div>
-
     <div class="field">
       <label for="email">EMAIL</label>
       <input type="email" id="email" required>
     </div>
-
     <button id="toStep3">Continue to Payment</button>
   </div>
 
@@ -91,28 +87,15 @@
 </div>
 
 <script>
-const BACKEND_URL = "http://localhost:3000/";
+const BACKEND_URL = "/api/create-subscription";
+const stripe = Stripe("pk_test_YourPublicKeyHere"); // REPLACE with your publishable key
 
 // Step navigation
 const step1 = document.getElementById("step1");
 const step2 = document.getElementById("step2");
 const step3 = document.getElementById("step3");
 
-const toStep2 = document.getElementById("toStep2");
-const toStep3 = document.getElementById("toStep3");
-
-const backToStep1 = document.getElementById("backToStep1");
-const backToStep2 = document.getElementById("backToStep2");
-
-const countryCodeSelect = document.getElementById("countryCode");
-const phoneInput = document.getElementById("phone");
-phoneInput.value = countryCodeSelect.value;
-countryCodeSelect.addEventListener("change", () => {
-  phoneInput.value = countryCodeSelect.value;
-});
-
-// Step 1 → Step 2
-toStep2.addEventListener("click", () => {
+document.getElementById("toStep2").addEventListener("click", () => {
   if (!document.getElementById("agreeTerms").checked) {
     document.getElementById("terms-error").style.display = "block";
     return;
@@ -122,10 +105,9 @@ toStep2.addEventListener("click", () => {
   step2.style.display = "block";
 });
 
-// Step 2 → Step 3
-toStep3.addEventListener("click", async () => {
+document.getElementById("toStep3").addEventListener("click", async () => {
   const name = document.getElementById("name").value.trim();
-  const phone = phoneInput.value.trim();
+  const phone = document.getElementById("phone").value.trim();
   const email = document.getElementById("email").value.trim();
 
   if (!name || !phone || !email) { alert("Please fill in all fields"); return; }
@@ -133,41 +115,39 @@ toStep3.addEventListener("click", async () => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) { alert("Please enter a valid email"); return; }
 
-  localStorage.setItem("customerName", name);
-  localStorage.setItem("customerPhone", phone);
-  localStorage.setItem("customerEmail", email);
-
   step2.style.display = "none";
   step3.style.display = "block";
 
+  // Request client secret from serverless function
   const res = await fetch(BACKEND_URL, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({ email })
   });
+
   const data = await res.json();
 
-  if (res.ok && data.client_secret) {
-    const stripe = Stripe("pk_test_YourPublicKeyHere");
-    const elements = stripe.elements({ clientSecret: data.client_secret });
-    const paymentElement = elements.create("payment");
-    paymentElement.mount("#payment-element");
-
-    document.getElementById("submit").onclick = async () => {
-      const { error } = await stripe.confirmPayment({
-        elements,
-        confirmParams: { return_url: "/confirmation.html" }
-      });
-      if (error) document.getElementById("payment-error").textContent = error.message;
-    };
-  } else {
+  if (!res.ok || !data.client_secret) {
     document.getElementById("payment-error").textContent = data.error || "Failed to fetch client_secret";
+    return;
   }
+
+  const elements = stripe.elements({ clientSecret: data.client_secret });
+  const paymentElement = elements.create("payment");
+  paymentElement.mount("#payment-element");
+
+  document.getElementById("submit").onclick = async () => {
+    const { error } = await stripe.confirmPayment({
+      elements,
+      confirmParams: { return_url: "/confirmation.html" }
+    });
+    if (error) document.getElementById("payment-error").textContent = error.message;
+  };
 });
 
 // Back buttons
-backToStep1.addEventListener("click", () => { step2.style.display = "none"; step1.style.display = "block"; });
-backToStep2.addEventListener("click", () => { step3.style.display = "none"; step2.style.display = "block"; });
+document.getElementById("backToStep1").addEventListener("click", () => { step2.style.display = "none"; step1.style.display = "block"; });
+document.getElementById("backToStep2").addEventListener("click", () => { step3.style.display = "none"; step2.style.display = "block"; });
 </script>
 </body>
 </html>
