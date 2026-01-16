@@ -1,23 +1,23 @@
 import Stripe from "stripe";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2022-11-15" });
 
-export const config = {
-  api: { bodyParser: false }, // raw body required for webhook verification
-};
+export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
-  const sig = req.headers["stripe-signature"];
+  const sig = req.headers['stripe-signature'];
   let event;
 
   try {
     const buf = await new Promise((resolve) => {
-      let data = "";
-      req.on("data", (chunk) => (data += chunk));
-      req.on("end", () => resolve(data));
+      let data = '';
+      req.on('data', chunk => data += chunk);
+      req.on('end', () => resolve(data));
     });
+
     event = stripe.webhooks.constructEvent(buf, sig, process.env.STRIPE_WEBHOOK_SECRET);
+
   } catch (err) {
-    console.error("Webhook signature verification failed:", err.message);
+    console.error("Webhook signature failed:", err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
@@ -30,7 +30,6 @@ export default async function handler(req, res) {
     const billing_cycle_anchor = Math.floor(nextMonth.getTime() / 1000);
 
     try {
-      // 2️⃣ Create subscription anchored to next 1st
       await stripe.subscriptions.create({
         customer: paymentIntent.customer,
         items: [{ price: process.env.PRICE_ID }],
