@@ -9,16 +9,12 @@ export default async function handler(req, res) {
   if (!name || !email || !phone) return res.status(400).json({ error: "All fields are required" });
 
   try {
-    // 1️⃣ Create a customer
-    const customer = await stripe.customers.create({
-      name,
-      email,
-      phone,
-    });
+    // 1️⃣ Create customer
+    const customer = await stripe.customers.create({ name, email, phone });
 
-    // 2️⃣ Create standalone PaymentIntent for first month
+    // 2️⃣ Create PaymentIntent for first month
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: 4000, // $40, adjust as needed
+      amount: 4000, // $40 first month, adjust if needed
       currency: "usd",
       customer: customer.id,
       metadata: { name, email, phone },
