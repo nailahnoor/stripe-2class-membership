@@ -142,6 +142,7 @@ document.getElementById("toStep3").addEventListener("click", async () => {
   const paymentElement = elements.create("payment");
   paymentElement.mount("#payment-element");
 
+  // Confirm PaymentIntent when user submits
   document.getElementById("submit").onclick = async () => {
     const { error } = await stripe.confirmPayment({
       elements,
