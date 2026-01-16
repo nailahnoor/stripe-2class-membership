@@ -89,7 +89,7 @@ ul { margin-top:0; }
 <script>
 const BACKEND_URL = "/api/create-subscription";
 
-// Use your publishable key
+// Stripe publishable key
 const stripe = Stripe("pk_test_51QG3MjAXY9hpMKCtZnFYTiRFjCHqD8jjci5n8fCNQ4OfxKrAnYBGuk7Iq3jDE1NGTiT8SBCIl70RQ2h2HCavPDbW00oAxvTmIf");
 
 // Step elements
@@ -111,10 +111,12 @@ document.getElementById("toStep2").addEventListener("click", () => {
 // Step 2 → Step 3
 document.getElementById("toStep3").addEventListener("click", async () => {
   const name = document.getElementById("name").value.trim();
-  const phone = document.getElementById("phone").value.trim();
   const email = document.getElementById("email").value.trim();
+  const phoneInput = document.getElementById("phone");
+  const countryCode = document.getElementById("countryCode").value;
+  const phone = `${countryCode}${phoneInput.value.trim()}`;
 
-  if (!name || !phone || !email) { alert("Please fill in all fields"); return; }
+  if (!name || !email || !phone) { alert("Please fill in all fields"); return; }
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) { alert("Please enter a valid email"); return; }
 
@@ -125,8 +127,9 @@ document.getElementById("toStep3").addEventListener("click", async () => {
   const res = await fetch(BACKEND_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email })
+    body: JSON.stringify({ email, name, phone })
   });
+
   const data = await res.json();
 
   if (!res.ok || !data.client_secret) {
