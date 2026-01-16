@@ -112,8 +112,8 @@ document.getElementById("toStep2").addEventListener("click", () => {
 document.getElementById("toStep3").addEventListener("click", async () => {
   const name = document.getElementById("name").value.trim();
   const email = document.getElementById("email").value.trim();
-  const phoneInput = document.getElementById("phone");
   const countryCode = document.getElementById("countryCode").value;
+  const phoneInput = document.getElementById("phone");
   const phone = `${countryCode}${phoneInput.value.trim()}`;
 
   if (!name || !email || !phone) { alert("Please fill in all fields"); return; }
@@ -137,6 +137,7 @@ document.getElementById("toStep3").addEventListener("click", async () => {
     return;
   }
 
+  // Mount Stripe Elements
   const elements = stripe.elements({ clientSecret: data.client_secret });
   const paymentElement = elements.create("payment");
   paymentElement.mount("#payment-element");
