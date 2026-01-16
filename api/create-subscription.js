@@ -1,37 +1,48 @@
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2022-11-15",
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2022-11-15" });
+
+export const config = {
+  api: { bodyParser: false }, // raw body for webhook verification
+};
 
 export default async function handler(req, res) {
-  if (req.method !== "POST")
-    return res.status(405).json({ error: "Method Not Allowed" });
-
-  const { email, name, phone } = req.body;
-  if (!email || !name || !phone)
-    return res.status(400).json({ error: "Email, name, and phone are required" });
+  const sig = req.headers['stripe-signature'];
+  let event;
 
   try {
-    // 1️⃣ Create customer
-    const customer = await stripe.customers.create({
-      email,
-      name,
-      phone,
+    const buf = await new Promise((resolve) => {
+      let data = '';
+      req.on('data', chunk => data += chunk);
+      req.on('end', () => resolve(data));
     });
-
-    // 2️⃣ Create PaymentIntent for first month
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: 4000, // first month price in cents
-      currency: "usd",
-      customer: customer.id,
-      metadata: { full_name: name, phone: phone, email },
-    });
-
-    res.status(200).json({ client_secret: paymentIntent.client_secret, customerId: customer.id });
-
+    event = stripe.webhooks.constructEvent(buf, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
-    console.error("Stripe error:", err);
-    res.status(500).json({ error: err.message });
+    console.error("Webhook signature verification failed.", err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
   }
+
+  if (event.type === "payment_intent.succeeded") {
+    const paymentIntent = event.data.object;
+
+    // Create subscription anchored to next 1st
+    const now = new Date();
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const billing_cycle_anchor = Math.floor(nextMonth.getTime() / 1000);
+
+    try {
+      await stripe.subscriptions.create({
+        customer: paymentIntent.customer,
+        items: [{ price: process.env.PRICE_ID }],
+        billing_cycle_anchor,
+        proration_behavior: "none",
+        metadata: paymentIntent.metadata,
+      });
+      console.log("Subscription created successfully for customer:", paymentIntent.customer);
+    } catch (err) {
+      console.error("Error creating subscription:", err);
+    }
+  }
+
+  res.json({ received: true });
 }
