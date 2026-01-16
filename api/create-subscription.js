@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2022-11-15" });
 
+// Disable body parser so we can read raw body for webhook verification
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
@@ -8,12 +9,14 @@ export default async function handler(req, res) {
   let event;
 
   try {
+    // Read raw body
     const buf = await new Promise((resolve) => {
       let data = '';
       req.on('data', chunk => data += chunk);
       req.on('end', () => resolve(data));
     });
 
+    // Verify webhook signature
     event = stripe.webhooks.constructEvent(buf, sig, process.env.STRIPE_WEBHOOK_SECRET);
 
   } catch (err) {
@@ -21,10 +24,11 @@ export default async function handler(req, res) {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  // Only act when first PaymentIntent succeeds
   if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object;
 
-    // 1️⃣ Calculate first of next month
+    // Calculate first of next month
     const now = new Date();
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const billing_cycle_anchor = Math.floor(nextMonth.getTime() / 1000);
@@ -35,7 +39,7 @@ export default async function handler(req, res) {
         items: [{ price: process.env.PRICE_ID }],
         billing_cycle_anchor,
         proration_behavior: "none",
-        metadata: paymentIntent.metadata,
+        metadata: paymentIntent.metadata, // Pass metadata along
       });
       console.log("Subscription created for customer:", paymentIntent.customer);
     } catch (err) {
