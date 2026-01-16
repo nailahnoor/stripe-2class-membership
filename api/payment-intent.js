@@ -10,27 +10,26 @@ export default async function handler(req, res) {
 
   const { email, name, phone } = req.body;
   if (!email || !name || !phone)
-    return res.status(400).json({ error: "Email, name, and phone required" });
+    return res.status(400).json({ error: "Email, name, and phone are required" });
 
   try {
     // 1️⃣ Create Stripe customer
-    const customer = await stripe.customers.create({
-      email,
-      name,
-      phone,
-    });
+    const customer = await stripe.customers.create({ email, name, phone });
 
-    // 2️⃣ Create PaymentIntent for first month
+    // 2️⃣ Create standalone PaymentIntent for first month
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: 4000, // first month in cents
+      amount: 4000, // $40 for first month
       currency: "usd",
       customer: customer.id,
-      metadata: { full_name: name, phone, email },
+      metadata: { full_name: name, email, phone },
     });
 
-    res.status(200).json({ client_secret: paymentIntent.client_secret, customerId: customer.id });
+    res.status(200).json({
+      client_secret: paymentIntent.client_secret,
+      customerId: customer.id,
+    });
   } catch (err) {
-    console.error(err);
+    console.error("Stripe error:", err);
     res.status(500).json({ error: err.message });
   }
 }
