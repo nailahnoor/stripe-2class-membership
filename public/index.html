@@ -6,23 +6,7 @@
 <title>2 Group Classes Membership</title>
 <script src="https://js.stripe.com/v3/"></script>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
-<style>
-body { font-family:'Montserrat',sans-serif; background:#f7f7f7; padding:40px; }
-.container { max-width:480px; margin:auto; background:white; padding:24px; border-radius:10px; }
-h2 { text-transform:uppercase; }
-button { width:100%; padding:12px; margin-top:16px; font-size:16px; cursor:pointer; background:#ff9900; border:none; color:white; text-transform:uppercase; }
-input, select { font-family: 'Montserrat', sans-serif; font-size:14px; color:#000; border-radius:4px; border:1px solid #ccc; padding:8px; margin-top:4px; }
-.step { display:none; }
-.back-arrow { cursor:pointer; font-weight:bold; display:inline-block; margin-bottom:16px; }
-ul { margin-top:0; }
-.terms-checkbox { display:flex; align-items:center; margin-top:16px; }
-.terms-checkbox input { margin-right:12px; transform: scale(1.2); }
-.field { margin-bottom:16px; }
-.phone-group { display:flex; gap:8px; }
-.phone-group select { width:30%; }
-.phone-group input { width:70%; }
-#payment-error { color:red; margin-top:8px; font-weight:bold; }
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="container">
@@ -38,7 +22,7 @@ ul { margin-top:0; }
     </ul>
     <div class="terms-checkbox">
       <input type="checkbox" id="agreeTerms">
-      <label for="agreeTerms">I have read, understand, and agree to these terms. I confirm that I want to purchase the item listed above.</label>
+      <label for="agreeTerms">I have read, understand, and agree to these terms.</label>
     </div>
     <div id="terms-error" style="color:red; display:none;">You must agree to the terms to continue.</div>
     <button id="toStep2">Continue to Contact Details</button>
@@ -55,14 +39,9 @@ ul { margin-top:0; }
     <div class="field">
       <label for="phone">PHONE NUMBER</label>
       <div class="phone-group">
-        <select id="countryCode" required>
-          <option value="+1">United States +1</option>
-          <option value="+44">United Kingdom +44</option>
-          <option value="+93">Afghanistan +93</option>
-          <option value="+355">Albania +355</option>
-          <option value="+213">Algeria +213</option>
-          <option value="+61">Australia +61</option>
-          <option value="+49">Germany +49</option>
+        <select id="countryCode">
+          <option value="+1">US +1</option>
+          <option value="+44">UK +44</option>
           <option value="+91">India +91</option>
         </select>
         <input type="tel" id="phone" required>
@@ -86,75 +65,6 @@ ul { margin-top:0; }
 
 </div>
 
-<script>
-const BACKEND_URL = "/api/create-subscription";
-
-// Stripe publishable key
-const stripe = Stripe("pk_test_51QG3MjAXY9hpMKCtZnFYTiRFjCHqD8jjci5n8fCNQ4OfxKrAnYBGuk7Iq3jDE1NGTiT8SBCIl70RQ2h2HCavPDbW00oAxvTmIf");
-
-// Steps
-const step1 = document.getElementById("step1");
-const step2 = document.getElementById("step2");
-const step3 = document.getElementById("step3");
-
-// Step 1 → Step 2
-document.getElementById("toStep2").addEventListener("click", () => {
-  if (!document.getElementById("agreeTerms").checked) {
-    document.getElementById("terms-error").style.display = "block";
-    return;
-  }
-  document.getElementById("terms-error").style.display = "none";
-  step1.style.display = "none";
-  step2.style.display = "block";
-});
-
-// Step 2 → Step 3
-document.getElementById("toStep3").addEventListener("click", async () => {
-  const name = document.getElementById("name").value.trim();
-  const email = document.getElementById("email").value.trim();
-  const countryCode = document.getElementById("countryCode").value;
-  const phoneInput = document.getElementById("phone");
-  const phone = `${countryCode}${phoneInput.value.trim()}`;
-
-  if (!name || !email || !phone) { alert("Please fill in all fields"); return; }
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) { alert("Please enter a valid email"); return; }
-
-  step2.style.display = "none";
-  step3.style.display = "block";
-
-  // Request client_secret from backend
-  const res = await fetch(BACKEND_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, name, phone })
-  });
-
-  const data = await res.json();
-
-  if (!res.ok || !data.client_secret) {
-    document.getElementById("payment-error").textContent = data.error || "Failed to fetch client_secret";
-    return;
-  }
-
-  // Mount Stripe Elements
-  const elements = stripe.elements({ clientSecret: data.client_secret });
-  const paymentElement = elements.create("payment");
-  paymentElement.mount("#payment-element");
-
-  // Confirm PaymentIntent when user submits
-  document.getElementById("submit").onclick = async () => {
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: "/confirmation.html" }
-    });
-    if (error) document.getElementById("payment-error").textContent = error.message;
-  };
-});
-
-// Back buttons
-document.getElementById("backToStep1").addEventListener("click", () => { step2.style.display = "none"; step1.style.display = "block"; });
-document.getElementById("backToStep2").addEventListener("click", () => { step3.style.display = "none"; step2.style.display = "block"; });
-</script>
+<script src="/js/main.js"></script>
 </body>
 </html>
