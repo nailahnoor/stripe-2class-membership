@@ -21,7 +21,6 @@ export default async function handler(req, res) {
     });
 
     res.status(200).json({ client_secret: paymentIntent.client_secret, customerId: customer.id });
-
   } catch (err) {
     console.error("Stripe error:", err);
     res.status(500).json({ error: err.message });
