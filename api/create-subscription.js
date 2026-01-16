@@ -20,32 +20,15 @@ export default async function handler(req, res) {
       phone,
     });
 
-    // 2️⃣ Create a one-time PaymentIntent for the first month
+    // 2️⃣ Create PaymentIntent for first month
     const paymentIntent = await stripe.paymentIntents.create({
       amount: 4000, // first month price in cents
       currency: "usd",
       customer: customer.id,
-      description: "First Month Membership",
-      metadata: { full_name: name, phone: phone },
+      metadata: { full_name: name, phone: phone, email },
     });
 
-    // 3️⃣ Calculate next 1st for subscription
-    const now = new Date();
-    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const billing_cycle_anchor = Math.floor(nextMonth.getTime() / 1000);
-
-    // 4️⃣ Create subscription anchored to 1st, trial until then (no charge yet)
-    const subscription = await stripe.subscriptions.create({
-      customer: customer.id,
-      items: [{ price: process.env.PRICE_ID }],
-      billing_cycle_anchor,
-      trial_end: billing_cycle_anchor,
-      metadata: { full_name: name, phone: phone },
-      proration_behavior: "none",
-    });
-
-    // 5️⃣ Return client_secret for frontend Stripe Elements
-    res.status(200).json({ client_secret: paymentIntent.client_secret });
+    res.status(200).json({ client_secret: paymentIntent.client_secret, customerId: customer.id });
 
   } catch (err) {
     console.error("Stripe error:", err);
