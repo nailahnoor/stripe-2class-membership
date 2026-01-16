@@ -40,7 +40,7 @@ button { background:#ff9900; border:none; color:white; cursor:pointer; text-tran
   <input type="checkbox" id="agreeTerms"> I have read and agree to the terms
 </label>
 
-<button id="toPayment">Continue to Payment</button>
+<button id="continue-to-payment">Continue to Payment</button>
 
 <div id="payment-element"></div>
 <button id="submit-payment" style="display:none;">Submit Payment</button>
@@ -49,10 +49,11 @@ button { background:#ff9900; border:none; color:white; cursor:pointer; text-tran
 </div>
 
 <script>
-const STRIPE_PUBLIC_KEY = "pk_test_51QG3MjAXY9hpMKCtZnFYTiRFjCHqD8jjci5n8fCNQ4OfxKrAnYBGuk7Iq3jDE1NGTiT8SBCIl70RQ2h2HCavPDbW00oAxvTmIf";
-const stripe = Stripe(STRIPE_PUBLIC_KEY);
+const stripe = Stripe("pk_test_51QG3MjAXY9hpMKCtZnFYTiRFjCHqD8jjci5n8fCNQ4OfxKrAnYBGuk7Iq3jDE1NGTiT8SBCIl70RQ2h2HCavPDbW00oAxvTmIf");
 
-document.getElementById("toPayment").addEventListener("click", async () => {
+let elements, paymentElement, clientSecret;
+
+document.getElementById("continue-to-payment").addEventListener("click", async () => {
   const name = document.getElementById("name").value.trim();
   const email = document.getElementById("email").value.trim();
   const phone = document.getElementById("countryCode").value + document.getElementById("phone").value.trim();
@@ -76,21 +77,23 @@ document.getElementById("toPayment").addEventListener("click", async () => {
     return;
   }
 
+  clientSecret = data.client_secret;
+
   // Mount Stripe Elements
-  const elements = stripe.elements({ clientSecret: data.client_secret });
-  const paymentElement = elements.create("payment");
+  elements = stripe.elements({ clientSecret });
+  paymentElement = elements.create("payment");
   paymentElement.mount("#payment-element");
 
   document.getElementById("submit-payment").style.display = "block";
+});
 
-  // Confirm payment
-  document.getElementById("submit-payment").onclick = async () => {
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: "/confirmation.html" }
-    });
-    if (error) document.getElementById("payment-error").textContent = error.message;
-  };
+// Confirm payment
+document.getElementById("submit-payment").addEventListener("click", async () => {
+  const { error } = await stripe.confirmPayment({
+    elements,
+    confirmParams: { return_url: "/confirmation.html" }
+  });
+  if (error) document.getElementById("payment-error").textContent = error.message;
 });
 </script>
 </body>
