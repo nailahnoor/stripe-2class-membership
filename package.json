@@ -2,10 +2,8 @@
   "name": "stripe-2class-membership",
   "version": "1.0.0",
   "type": "module",
-  "scripts": {
-    "dev": "vercel dev"
-  },
   "dependencies": {
-    "stripe": "^12.18.0"
+    "stripe": "^12.18.0",
+    "dotenv": "^17.2.3"
   }
 }
