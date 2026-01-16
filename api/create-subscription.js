@@ -25,29 +25,29 @@ export default async function handler(req, res) {
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const billing_cycle_anchor = Math.floor(nextMonth.getTime() / 1000);
 
-    // 3️⃣ Create subscription
-    let subscription = await stripe.subscriptions.create({
+    // 3️⃣ Create subscription anchored to the 1st, no trial
+    const subscription = await stripe.subscriptions.create({
       customer: customer.id,
       items: [{ price: process.env.PRICE_ID }],
-      payment_behavior: "default_incomplete",
       billing_cycle_anchor,
       proration_behavior: "none",
-      expand: ["latest_invoice.payment_intent"],
-      metadata: {
-        full_name: name,
-        phone: phone,
-      },
+      metadata: { full_name: name, phone: phone },
+      expand: ["latest_invoice"],
     });
 
-    // 4️⃣ Ensure paymentIntent exists (fallback)
-    let paymentIntent = subscription.latest_invoice?.payment_intent;
+    // 4️⃣ Immediately create first invoice to charge full month
+    const invoice = await stripe.invoices.create({
+      customer: subscription.customer,
+      subscription: subscription.id,
+      collection_method: "charge_automatically",
+      auto_advance: true, // finalize automatically
+    });
 
-    if (!paymentIntent && subscription.latest_invoice?.id) {
-      const invoice = await stripe.invoices.retrieve(subscription.latest_invoice.id, {
-        expand: ["payment_intent"]
-      });
-      paymentIntent = invoice.payment_intent;
-    }
+    const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id, {
+      expand: ["payment_intent"]
+    });
+
+    const paymentIntent = finalizedInvoice.payment_intent;
 
     if (!paymentIntent) throw new Error("PaymentIntent could not be retrieved");
 
