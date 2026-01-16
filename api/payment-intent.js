@@ -1,33 +1,28 @@
 import Stripe from "stripe";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2022-11-15",
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2022-11-15" });
 
 export default async function handler(req, res) {
-  if (req.method !== "POST")
-    return res.status(405).json({ error: "Method Not Allowed" });
+  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
 
-  const { email, name, phone } = req.body;
-  if (!email || !name || !phone)
-    return res.status(400).json({ error: "Email, name, and phone are required" });
+  const { name, email, phone } = req.body;
+  if (!name || !email || !phone) return res.status(400).json({ error: "Missing fields" });
 
   try {
-    // 1️⃣ Create Stripe customer
-    const customer = await stripe.customers.create({ email, name, phone });
+    // 1️⃣ Create customer
+    const customer = await stripe.customers.create({
+      name, email, phone
+    });
 
-    // 2️⃣ Create standalone PaymentIntent for first month
+    // 2️⃣ Create standalone PaymentIntent
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: 4000, // $40 for first month
+      amount: 4000, // $40
       currency: "usd",
       customer: customer.id,
-      metadata: { full_name: name, email, phone },
+      metadata: { name, email, phone },
     });
 
-    res.status(200).json({
-      client_secret: paymentIntent.client_secret,
-      customerId: customer.id,
-    });
+    res.status(200).json({ client_secret: paymentIntent.client_secret, customerId: customer.id });
+
   } catch (err) {
     console.error("Stripe error:", err);
     res.status(500).json({ error: err.message });
