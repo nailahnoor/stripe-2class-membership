@@ -53,6 +53,7 @@ const stripe = Stripe("pk_test_51QG3MjAXY9hpMKCtZnFYTiRFjCHqD8jjci5n8fCNQ4OfxKrA
 
 let elements, paymentElement, clientSecret;
 
+// Click handler: Create PaymentIntent and mount Stripe Element
 document.getElementById("continue-to-payment").addEventListener("click", async () => {
   const name = document.getElementById("name").value.trim();
   const email = document.getElementById("email").value.trim();
@@ -64,27 +65,33 @@ document.getElementById("continue-to-payment").addEventListener("click", async (
     return;
   }
 
-  // Create PaymentIntent
-  const res = await fetch("/api/create-payment-intent", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ name, email, phone })
-  });
+  try {
+    const res = await fetch("/api/create-payment-intent", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ name, email, phone })
+    });
 
-  const data = await res.json();
-  if (!res.ok || !data.client_secret) {
-    document.getElementById("payment-error").textContent = data.error || "Failed to create payment";
-    return;
+    const data = await res.json();
+
+    if (!res.ok || !data.client_secret) {
+      document.getElementById("payment-error").textContent = data.error || "Failed to create payment";
+      return;
+    }
+
+    clientSecret = data.client_secret;
+
+    // Mount Stripe Elements
+    elements = stripe.elements({ clientSecret });
+    paymentElement = elements.create("payment");
+    paymentElement.mount("#payment-element");
+
+    document.getElementById("submit-payment").style.display = "block";
+
+  } catch (err) {
+    console.error(err);
+    document.getElementById("payment-error").textContent = "Error creating PaymentIntent";
   }
-
-  clientSecret = data.client_secret;
-
-  // Mount Stripe Elements
-  elements = stripe.elements({ clientSecret });
-  paymentElement = elements.create("payment");
-  paymentElement.mount("#payment-element");
-
-  document.getElementById("submit-payment").style.display = "block";
 });
 
 // Confirm payment
@@ -93,7 +100,9 @@ document.getElementById("submit-payment").addEventListener("click", async () => 
     elements,
     confirmParams: { return_url: "/confirmation.html" }
   });
-  if (error) document.getElementById("payment-error").textContent = error.message;
+  if (error) {
+    document.getElementById("payment-error").textContent = error.message;
+  }
 });
 </script>
 </body>
